@@ -1,35 +1,70 @@
 import { fileURLToPath } from 'node:url'
+import { env } from 'node:process'
 import { defineNuxtConfig } from 'nuxt/config'
 
 export default defineNuxtConfig({
   modules: [
     '@vueuse/nuxt',
-    '@unocss/nuxt',
+    '@nuxt/ui',
+    '@nuxt/devtools',
+    '@nuxtjs/i18n',
     '@pinia/nuxt',
-    '@nuxtjs/color-mode',
-    '@intlify/nuxt3',
+    '@pinia-plugin-persistedstate/nuxt',
+    'unplugin-turbo-console/nuxt',
+    '@nuxt/test-utils/module',
   ],
-  build: {
-    transpile: ['vue-toastification'],
+  i18n: {
+    langDir: 'locales',
+    strategy: 'no_prefix',
+    locales: [
+      {
+        code: 'en',
+        iso: 'en',
+        file: 'en.json',
+        name: 'English',
+      },
+      {
+        code: 'zhCN',
+        iso: 'zh-CN',
+        file: 'zh-CN.json',
+        name: '简体中文',
+      },
+    ],
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'i18n_redirected',
+      redirectOn: 'root',
+    },
+  },
+  piniaPersistedstate: {
+    storage: 'localStorage',
   },
   ssr: false,
-  unocss: {
-    preflight: true,
+  ui: {
+    icons: ['bi', 'gridicons', 'ri', 'icon-park-outline', 'tabler', 'ant-design'],
   },
-  colorMode: {
-    classSuffix: '',
+  build: {
+    transpile: ['vue-sonner'],
   },
   alias: {
     server: fileURLToPath(new URL('./server', import.meta.url)),
+    types: fileURLToPath(new URL('./types', import.meta.url)),
   },
   css: [
-    'anu-vue/dist/style.css',
-    'vue-toastification/dist/index.css',
+    'atropos/css',
   ],
-  intlify: {
-    localeDir: 'locales',
-    vueI18n: {
-      locale: 'en',
+  vite: {
+    define: {
+      __ORIGIN__: JSON.stringify(env.ORIGIN || ''),
     },
+  },
+  appConfig: {
+    origin: env.ORIGIN || '',
+  },
+  runtimeConfig: {
+    blockApps: '',
+    blockUsers: '',
+    steamKey: '',
+    cacheTime: '',
   },
 })

@@ -1,51 +1,40 @@
-import type { BaseParams, OwnedGames, PlayerSummaries, RecentlyPlayedGames } from 'server/core/types/index'
-import request from './axios'
+import type {
+  BaseResponse,
+  OwnedGames,
+  OwnedParams,
+  PlayedGames,
+  PlayerParams,
+  PlayerSummaries,
+  RecentlyPlayedGames,
+} from 'types'
+import { apiFetch } from './fetch'
 
-export const getPlayerSummaries = (params: PlayerSummaries) => {
-  return request({
-    url: '/ISteamUser/GetPlayerSummaries/v0002/',
+export function getImage(url: string) {
+  return $fetch<ArrayBuffer>(url, {
+    responseType: 'arrayBuffer',
+  })
+}
+
+export function getPlayerSummaries(params: PlayerParams) {
+  return apiFetch<BaseResponse<PlayerSummaries>>('/ISteamUser/GetPlayerSummaries/v0002/', {
     params,
   })
 }
 
-export const getRecentlyPlayedGames = (params: RecentlyPlayedGames) => {
-  return request({
-    url: '/IPlayerService/GetRecentlyPlayedGames/v0001/',
+export function getRecentlyPlayedGames(params: RecentlyPlayedGames) {
+  return apiFetch<BaseResponse<PlayedGames>>('/IPlayerService/GetRecentlyPlayedGames/v0001/', {
     params,
   })
 }
 
-export const getOwnedGames = (params: OwnedGames) => {
-  return request({
-    url: '/IPlayerService/GetOwnedGames/v0001/',
+export function getOwnedGames(params: OwnedParams) {
+  return apiFetch<BaseResponse<OwnedGames>>('/IPlayerService/GetOwnedGames/v0001/', {
     params,
   })
 }
 
-export const getSteamLevel = (params: BaseParams) => {
-  return request({
-    url: '/IPlayerService/GetSteamLevel/v1/',
-    params,
-  })
-}
-
-export const getBadges = (params: BaseParams) => {
-  return request({
-    url: '/IPlayerService/GetBadges/v1/',
-    params,
-  })
-}
-
-export const getImage = (url: string) => {
-  return request({
-    url,
-    responseType: 'arraybuffer',
-  })
-}
-
-export const getSteamProfile = (id: any) => {
-  return request({
-    url: `https://steamcommunity.com/profiles/${id}/`,
+export function getSteamProfile(steamid: string) {
+  return $fetch<string>(`https://steamcommunity.com/profiles/${steamid}/`, {
     headers: {
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.101 Safari/537.36',

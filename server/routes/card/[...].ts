@@ -1,48 +1,51 @@
-import {
-  getBadges,
-  getPlayerSummaries,
-  getRecentlyPlayedGames,
-  getSteamProfile,
-} from 'server/core/request/steamApi'
-import type { Count, MyResponseType } from 'server/core/types/index'
-import { steamCard } from 'server/core/render/steamCard'
-import { imageUrl2Base64 } from 'server/core/utils/tools'
-import errorCard from 'server/core/render/errorCard'
-import { crawler, data, setting } from 'server/core/logic'
+import { getPlayerSummaries, getRecentlyPlayedGames, getSteamProfile } from 'server/core/request/steamApi'
+import { crawler, data, parseUrlConfig } from 'server/core/logic'
 import initLocale from 'server/core/locales'
+import type { Count } from 'types'
+import { imageUrl2Base64, transparentImageBase64 } from 'server/core/utils'
+import { generateError } from '~/server/core/render/template/error'
+import { getGameCoverUrl } from '@/utils/common'
+import { generateSvg } from '~/server/core/render/template/svg'
 
 const i18n = initLocale('zhCN')
-const key: string = process.env.STEAM_KEY || ''
-const cacheTime: string = process.env.CACHE_TIME || '3600'
 const JPEG_PREFIX = 'data:image/jpeg;base64,'
 const PNG_PREFIX = 'data:image/png;base64,'
 
 export default defineEventHandler(async (event) => {
   try {
+    const runtimeConfig = useRuntimeConfig(event)
+    const steamKey = runtimeConfig.steamKey
+    const cacheTime = runtimeConfig.cacheTime || '3600'
+    const blockUsers = runtimeConfig.blockUsers || ''
+    const blockApps = runtimeConfig.blockApps || ''
+
     setHeader(event, 'Content-Type', 'image/svg+xml')
     setHeader(event, 'Cache-Control', `public, max-age=${cacheTime}`)
-    const { _ } = event.context.params
+    const { _ } = event.context.params as { _: string }
     const splitArr = _.split('/')
     const steamid = splitArr[0]
     const settings = splitArr[1]
-    const { setting: _setting } = setting(settings)
-    i18n.setLocale(_setting.lang as any)
-    const numberReg = /[A-Za-z]/
+    const numberReg = /[A-Z]/i
     if (steamid.match(numberReg) !== null)
-      return errorCard(i18n.get('invalid_steamid'), i18n.get('error-info'))
+      return generateError(i18n.get('invalid_steamid'), i18n.get('error-info'))
 
-    const AllData: Array<MyResponseType> = await Promise.all([
-      getPlayerSummaries({ key, steamids: steamid }),
+    if (blockUsers.split(',').includes(steamid))
+      return generateError('Sorry, your account had been banned.', i18n.get('error-info'))
+
+    const { config } = parseUrlConfig(settings)
+    i18n.setLocale(config.lang)
+
+    const AllData = await Promise.all([
+      getPlayerSummaries({ key: steamKey, steamids: steamid }),
       getRecentlyPlayedGames({
         format: 'json',
         steamid,
-        key,
+        key: steamKey,
         count: 0,
       }),
       getSteamProfile(steamid),
-      getBadges({ key, steamid }),
     ])
-    const [player, playedGames, profile, badges] = AllData
+    const [player, playedGames, profile] = AllData
 
     const {
       gameCount,
@@ -53,31 +56,37 @@ export default defineEventHandler(async (event) => {
       artWorkCount,
       reviewCount,
       guideCount,
-    } = crawler(profile) as any
-    const { games, playTime, badgeCount, playerLevel, avatarUrl, name, isOnline } = data(player?.response?.players[0], playedGames, badges)
+      badgeCount,
+      playerLevel,
+      avatarUrl,
+    } = crawler(profile)
+
+    const { games, playTime, name, isOnline } = data(player.response.players[0], playedGames.response, blockApps)
     let badgeIcon = ''
     if (badgeIconUrl) {
       badgeIcon = await imageUrl2Base64(badgeIconUrl)
-      badgeIcon = PNG_PREFIX + badgeIcon
+      badgeIcon = badgeIcon ? PNG_PREFIX + badgeIcon : transparentImageBase64
     }
 
-    let avatarUrlBase64 = await imageUrl2Base64(avatarUrl)
-    avatarUrlBase64 = avatarUrlBase64 ? JPEG_PREFIX + avatarUrlBase64 : ''
+    let avatarUrlBase64 = await imageUrl2Base64(avatarUrl!)
+    avatarUrlBase64 = avatarUrlBase64 ? JPEG_PREFIX + avatarUrlBase64 : transparentImageBase64
 
     for (let i = 0; i < groupIconList.length; i++) {
       groupIconList[i] = await imageUrl2Base64(groupIconList[i])
       groupIconList[i] = JPEG_PREFIX + groupIconList[i]
     }
 
+    const gameImgs = []
+
     for (let i = 0; i < games.length; i++) {
-      const url = `https://steamcdn-a.akamaihd.net/steam/apps/${games[i].appid}/header.jpg`
-      games[i] = await imageUrl2Base64(url)
-      games[i] = JPEG_PREFIX + games[i]
+      const url = getGameCoverUrl(games[i].appid)
+      gameImgs[i] = await imageUrl2Base64(url)
+      gameImgs[i] = gameImgs[i] ? JPEG_PREFIX + gameImgs[i] : transparentImageBase64
     }
 
     const counts: Count[] = []
 
-    _setting.counts.forEach((item) => {
+    config.statistics.forEach((item: any) => {
       switch (item) {
         case 'games':
           counts.push({
@@ -124,25 +133,43 @@ export default defineEventHandler(async (event) => {
       }
     })
 
-    return steamCard(
+    if (config.bg.includes('bg-game')) {
+      const arrs = config.bg.split('-')
+      let url = ''
+      if (arrs.length < 3) {
+        const { appid } = await $fetch<{
+          appid: number
+        }>(`/info/games/${steamid}`)
+        url = getGameCoverUrl(appid!)
+      }
+      else {
+        url = getGameCoverUrl(arrs[2])
+      }
+      let gameBase64 = await imageUrl2Base64(url)
+      gameBase64 = JPEG_PREFIX + gameBase64
+      config.bg = `game-${gameBase64}`
+    }
+
+    return generateSvg({
       name,
       avatarUrlBase64,
       playerLevel,
       isOnline,
-      games,
-      _setting.theme,
-      _setting.badge,
-      _setting.group,
-      _setting.bgColor,
-      _setting.textColor,
+      gameImgs,
+      theme: config.theme,
+      badge: config.badge,
+      group: config.group,
+      bg: config.bg,
+      textColor: config.textColor,
       playTime,
       groupIconList,
       badgeIcon,
       i18n,
       counts,
-    )
+    })
   }
   catch (error) {
-    return errorCard(error as string, 'error')
+    console.error('[Steam Card] generate error:', error)
+    return generateError(String(error), 'error')
   }
 })

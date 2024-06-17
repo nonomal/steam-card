@@ -1,13 +1,10 @@
-FROM node:16-alpine as build-stage
+FROM node:18-alpine as build-stage
 
+COPY ./ /app
 WORKDIR /app
-RUN corepack enable
 
-COPY .npmrc package.json pnpm-lock.yaml ./
-RUN --mount=type=cache,id=pnpm-store,target=/root/.pnpm-store \
-    pnpm install --frozen-lockfile
-
-COPY . .
-RUN pnpm build
+RUN npm install pnpm -g && pnpm install && pnpm run build
 
 CMD node .output/server/index.mjs
+
+EXPOSE 3000

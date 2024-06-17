@@ -1,9 +1,23 @@
-<script setup>
+<script setup lang="ts">
+const { locale } = useI18n()
+
+locale.value = localStorage.getItem('locale') || 'en'
+
+localStorage.setItem('locale', locale.value)
+
 useHead({
   title: 'Steam Card',
+  meta: [
+    {
+      name: 'description',
+      content: '⚡ Generate Your Steam Profile Card Quickly/快速生成你的Steam资料卡片 ⚡',
+    },
+  ],
   link: [
     {
-      rel: 'icon', type: 'image/svg', href: '/icon.svg',
+      rel: 'icon',
+      type: 'image/svg',
+      href: '/icon.svg',
     },
   ],
 })
@@ -12,17 +26,8 @@ useHead({
 <template>
   <NuxtLayout>
     <NuxtPage />
+    <ClientOnly>
+      <Toaster rich-colors position="top-center" />
+    </ClientOnly>
   </NuxtLayout>
 </template>
-
-<style>
-html, body , #__nuxt{
-  height: 100vh;
-  margin: 0;
-  padding: 0;
-}
-
-html.dark {
-  background: #222;
-}
-</style>

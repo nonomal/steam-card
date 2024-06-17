@@ -1,6 +1,6 @@
 import { load } from 'cheerio'
 
-export function crawler(html: any) {
+export function crawler(html: string) {
   const $ = load(html)
 
   let gameCount = '0'
@@ -8,6 +8,7 @@ export function crawler(html: any) {
   let artWorkCount = '0'
   let reviewCount = '0'
   let guideCount = '0'
+  let badgeCount = '0'
 
   const groupIconList: string[] = []
   $('.profile_group_links')
@@ -30,26 +31,36 @@ export function crawler(html: any) {
 
   const badgeIconUrl = $('.favorite_badge_icon').children().attr('src') as string
 
-  $('.profile_item_links').children().each((i, el) => {
-    const itemName = $(el).children().find('.count_link_label').text()
-    let itemCount = $(el).children().find('.profile_count_link_total').text()
-    itemCount = itemCount.toString().replaceAll('\n', '').replaceAll('\t', '')
+  $('.count_link_label').each((i, el) => {
+    const itemName = $(el).text()
+    let count = $(el).next().text()
+    count = count.toString().replaceAll('\n', '').replaceAll('\t', '')
 
-    if (itemName === 'Games')
-      gameCount = itemCount
-
-    if (itemName === 'Screenshots')
-      screenshotCount = itemCount
-
-    if (itemName === 'Artwork')
-      artWorkCount = itemCount
-
-    if (itemName === 'Reviews')
-      reviewCount = itemCount
-
-    if (itemName === 'Guides')
-      guideCount = itemCount
+    switch (itemName) {
+      case 'Games':
+        gameCount = count
+        break
+      case 'Screenshots':
+        screenshotCount = count
+        break
+      case 'Artwork':
+        artWorkCount = count
+        break
+      case 'Reviews':
+        reviewCount = count
+        break
+      case 'Guides':
+        guideCount = count
+        break
+      case 'Badges':
+        badgeCount = count
+        break
+    }
   })
+
+  const playerLevel = $('.persona_name,.persona_level').find('.friendPlayerLevelNum').text()
+
+  const avatarUrl = $('.playerAvatarAutoSizeInner').children().last().attr('src')
 
   return {
     gameCount,
@@ -60,5 +71,8 @@ export function crawler(html: any) {
     artWorkCount,
     reviewCount,
     guideCount,
+    badgeCount,
+    playerLevel,
+    avatarUrl,
   }
 }
